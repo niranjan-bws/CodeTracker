@@ -1,7 +1,9 @@
-Purpose
+**Purpose**
+
 This controller powers a “Fund Explorer” API endpoint that returns a paginated list of mutual funds filtered by categories, AMC, SIP/Lumpsum minimum amounts, and a flexible search query, with supporting facet data for parent/child categories and AMC names to drive UI filters.
 
-High-level flow
+**High-level flow**
+
 Validate and normalize incoming query parameters using a strict schema.
 
 Build a MongoDB filter object dynamically based on the validated inputs.
@@ -9,13 +11,15 @@ Build a MongoDB filter object dynamically based on the validated inputs.
 Execute the main data query and parallel facet queries efficiently with Promise.all.
 
 Return results with applied filters echo, facets, and robust pagination metadata.
+**
+Imports**
 
-Imports
 Fund: Mongoose model for funds; exposes find, countDocuments, distinct, and aggregate APIs used for retrieval and faceting.
 
 z from zod: runtime schema validation library used to define and enforce constraints on query parameters with precise error messages.
 
-Helpers
+**Helpers**
+
 escapeRegex(s): Escapes all regex metacharacters in user strings to prevent regex injection and unintended pattern expansion when constructing MongoDB regex queries; replaces characters like ., *, +, ?, ^, $, {, }, (, ), |, [, ], \ with safe literals .
 
 toFiniteNumber(v): Safely coerces string inputs to finite numbers; returns null for undefined/null or non-finite results so NaN and Infinity never reach MongoDB operators, preserving predictable filters and enabling clean 400 validations when needed.
@@ -39,17 +43,22 @@ Accepted as strings (from querystring), then coerced and validated later; keepin
 
 On validation failure, the controller returns HTTP 400 with a list of field-specific issues, enabling UI to highlight incorrect inputs precisely.
 
-Pagination
+**Pagination **
+
 page: parsed as integer, clamped to at least 1; defaults to 1 when absent or invalid.
 
 limit: parsed as integer, clamped between 1 and 100 to prevent abuse and memory pressure; defaults to 20.
 
 skip: computed as (page − 1) × limit for use with MongoDB skip/limit pagination.
 
-Base filter
+**Base filter**
+
 Starts with { isActive: true, "planOptions.option": "GROWTH" } to enforce only active funds and Growth plan options, keeping queries consistent and indexable across requests.
 
-Dynamic filter construction
+
+
+**Dynamic filter construction**
+
 Categories:
 
 If parent_category exists, adds filter["categories.parentCategoryId"] = parent_category.trim().
@@ -76,7 +85,8 @@ Applies this regex across multiple fields within $or: schemeName, amcName, planN
 
 Net effect: all structured filters and the fuzzy search are combined so searches refine results rather than override other constraints, delivering intuitive filtering behavior in the UI.
 
-Facets
+**Facets**
+
 Parent categories:
 
 Fund.distinct("categories.parentCategoryId", { isActive: true }) provides a list of available parent categories to populate a top-level filter component, independent of current selection, which simplifies browsing.
@@ -87,7 +97,8 @@ When a parent_category is supplied, an aggregation pipeline fetches all unique c
 
 These facet queries run in parallel with the main data query to minimize latency.
 
-Query execution
+**Query execution**
+
 Main list:
 
 Fund.find(filter).select("-__v").lean().sort({ createdAt: -1 }).skip(skip).limit(limit) returns lightweight plain objects, excludes internal __v, orders by recency, and applies pagination efficiently.
